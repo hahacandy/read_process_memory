@@ -33,6 +33,18 @@ def read_process_memory(_PROCESS_HEADER_ADDR, _PROCESS_ID):
         return result2
     else:
         return -1
+    
+def write_memory(_address, _data, _pid):
+    process_all_access = 0x1F0FFF
+    h_process = windll.kernel32.OpenProcess(process_all_access, False, pid)
+    buffer = c_uint(data)
+    ipbuffer = byref(buffer)
+    nsize = sizeof(buffer)
+    num = c_long(0)
+    windll.kernel32.WriteProcessMemory(h_process, addr, ipbuffer, nsize, num)
+    return
 
 
 # ex) print(read_process_memory(0x00000000, getpid()))
+
+# ex) write_memory(addr, data, pid)
