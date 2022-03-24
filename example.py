@@ -4,6 +4,8 @@ from ctypes.wintypes import *
 
 import psutil
 
+from mem_edit import Process
+
 def getpid(nameprocess):
 
     for proc in psutil.process_iter():
@@ -11,41 +13,50 @@ def getpid(nameprocess):
 
             return proc.pid
 
+def read_process_memory(_address, _pid):
+    with Process.open_process(pid) as p:
+        num_ulong = p.read_memory(_address, ctypes.c_ulong())
+        return num_ulong
+    return None
 
-def read_process_memory(_PROCESS_HEADER_ADDR, _PROCESS_ID):
-    PROCESS_VM_READ = 0x0010
-    k32 = WinDLL('kernel32')
-    k32.OpenProcess.argtypes = DWORD, BOOL, DWORD
-    k32.OpenProcess.restype = HANDLE
-    k32.ReadProcessMemory.argtypes = HANDLE, LPVOID, LPVOID, c_size_t, POINTER(c_size_t)
-    k32.ReadProcessMemory.restype = BOOL
-    process = k32.OpenProcess(PROCESS_VM_READ, 0, _PROCESS_ID)
-    result = create_string_buffer(4)
-    bytes_read = c_size_t()
-    if k32.ReadProcessMemory(process, _PROCESS_HEADER_ADDR, result, 4, ctypes.byref(bytes_read)):
-        result2 = 0
-        result2 += result.raw[0] << 8 * 0
-        result2 += result.raw[1] << 8 * 1
-        result2 += result.raw[2] << 8 * 2
-        result2 += result.raw[3] << 8 * 3
-        return result2
-    else:
-        return -1
-    
-def write_memory(_address, _data, _pid):
-    process_all_access = 0x1F0FFF
-    h_process = windll.kernel32.OpenProcess(process_all_access, False, _pid)
-    buffer = c_uint(_data)
-    ipbuffer = byref(buffer)
-    nsize = sizeof(buffer)
-    num = c_long(0)
-    windll.kernel32.WriteProcessMemory(h_process, _address, ipbuffer, nsize, num)
-    return
+def write_memory(_address, _value, _pid):
+    with Process.open_process(pid) as p:
+        p.write_memory(_address, ctypes.c_ulong(_value))
 
-pid = getpid('notepad.exe')
+def search_memory(pid):
+    with Process.open_process(pid) as p:
+        addrs = None
+        while True:
+            value = input('검색 값 입력:')
+            
+            if value == '':
+                print('검색 종료')
+                break
+                
+            value = int(value)
+                
+            if addrs == None:
+                addrs = p.search_all_memory(ctypes.c_int(value))
+            else:
+                addrs = p.search_addresses(addrs, ctypes.c_int(value))
+                
+            print('검색 된 개수:' + str(len(addrs)))
+            
+            if len(addrs) <= 100:
+                for idx, addr in enumerate(addrs):
+                    print(idx, hex(addr))
+                    
+                if len(addrs) == 1 or len(addrs) == 0:
+                    print('검색 종료')
+                    break
 
-# 0x00000000 메모리 주소에 해당하는 값이 무엇인지
-print(read_process_memory(0x00000000, pid))
 
-# 0x00000000 메모리 주소에 999 값을 적용
-write_memory(0x00000000, 999, pid)
+pid = getpid('피카츄배구.exe')
+
+search_memory(pid)
+
+# 메모리 주소에 해당하는 값이 무엇인지
+print(read_process_memory(0x2313c94, pid))
+
+# 메모리 주소에 값을 적용
+write_memory(0x2313c94, 1, pid)
